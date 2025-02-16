@@ -39,6 +39,8 @@ inline RgbColor fix_color(const BgrColor &color) {
   return {color.r, color.g, color.b};
 }
 
+typedef std::vector<std::vector<RgbColor>> Canvas;
+
 std::pair<BMPHeader, DIBHeader> read_headers(std::ifstream &file) {
   // Read headers
   BMPHeader bmp_header;
@@ -70,7 +72,7 @@ std::pair<int, int> width_height(std::string filepath) {
   return {dib_header.width, dib_header.height};
 }
 
-RgbColor **load_image(std::string filepath) {
+Canvas load_image(std::string filepath) {
   std::ifstream file(filepath, std::ios::binary);
   if (!file) {
     throw std::runtime_error("Error: Could not open file: " + filepath);
@@ -80,10 +82,7 @@ RgbColor **load_image(std::string filepath) {
 
   int width = dib_header.width;
   int height = dib_header.height;
-  RgbColor **result = new RgbColor *[width];
-  for (int i = 0; i < width; i++) {
-    result[i] = new RgbColor[height];
-  }
+  Canvas result(width, std::vector<RgbColor>(height));
 
   file.seekg(bmp_header.offsetData, std::ios::beg);
   int rowPadding =
