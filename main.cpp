@@ -5,21 +5,25 @@
 #include <optional>
 #include <vector>
 
+#include "bitmap.cpp"
+
 struct WindowParams {
   int w, h;
 };
 
 struct Candidate {
   int x, y;
-  int r, g, b;
+  RgbColor color;
 };
 
 std::vector<Candidate> generate_candidates(int step, const WindowParams &wp) {
   return {{.x = rand() % wp.w,
            .y = rand() % wp.h,
-           .r = rand() % 256,
-           .g = rand() % 256,
-           .b = rand() % 256}};
+           .color = {
+               .r = static_cast<unsigned char>(rand() % 256),
+               .g = static_cast<unsigned char>(rand() % 256),
+               .b = static_cast<unsigned char>(rand() % 256),
+           }}};
 }
 
 std::optional<Candidate>
@@ -27,27 +31,17 @@ best_candidate(const std::vector<Candidate> &candidates) {
   return candidates[0];
 }
 
-inline Color color_from_rgb(int r, int g, int b) {
-  return {static_cast<unsigned char>(r), static_cast<unsigned char>(g),
-          static_cast<unsigned char>(b), 255};
+inline Color color_from_rgb_color(const RgbColor &rgb_color) {
+  return {rgb_color.r, rgb_color.g, rgb_color.b, 255};
 }
 
-inline Color color_from_candidate(const Candidate &candidate) {
-  return color_from_rgb(candidate.r, candidate.g, candidate.b);
-}
-
-void set_canvas_pixel(Color **canvas, Color color, int i, int j,
+void set_canvas_pixel(RgbColor **canvas, RgbColor color, int i, int j,
                       const WindowParams &wp) {
   if (i < 0 || j < 0)
     return;
   if (i >= wp.w || j >= wp.h)
     return;
   canvas[i][j] = color;
-}
-
-void set_canvas_pixel(Color **canvas, int r, int g, int b, int i, int j,
-                      const WindowParams &wp) {
-  set_canvas_pixel(canvas, color_from_rgb(r, g, b), i, j, wp);
 }
 
 int main() {
@@ -63,15 +57,15 @@ int main() {
   // TJ: Fix width / height
 
   // Allocate a 2D array of Color
-  Color **canvas = new Color *[wp.w];
+  RgbColor **canvas = new RgbColor *[wp.w];
   for (int i = 0; i < wp.w; i++) {
-    canvas[i] = new Color[wp.h];
+    canvas[i] = new RgbColor[wp.h];
   }
 
   // Set all pixels initally to black
   for (int i = 0; i < wp.w; i++) {
     for (int j = 0; j < wp.h; j++) {
-      set_canvas_pixel(canvas, 255, 255, 255, i, j, wp);
+      set_canvas_pixel(canvas, {255, 255, 255}, i, j, wp);
     }
   }
 
@@ -89,15 +83,14 @@ int main() {
     for (int dy = -radius; dy <= radius; dy++) {
       for (int dx = -radius; dx <= radius; dx++) {
         if (dx * dx + dy * dy <= radius * radius) {
-          set_canvas_pixel(canvas, color_from_candidate(*c), c->x + dx,
-                           c->y + dy, wp);
+          set_canvas_pixel(canvas, c->color, c->x + dx, c->y + dy, wp);
         }
       }
     }
 
     for (int i = 0; i < wp.w; i++) {
       for (int j = 0; j < wp.h; j++) {
-        DrawPixel(i, j, canvas[i][j]);
+        DrawPixel(i, j, color_from_rgb_color(canvas[i][j]));
       }
     }
 
