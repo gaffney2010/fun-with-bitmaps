@@ -5,7 +5,7 @@
 #include <optional>
 #include <vector>
 
-#include "bitmap.cpp"
+#include "bitmap.h"
 
 struct WindowParams {
   int w, h;

@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "bitmap.h"
+
 #pragma pack(push, 1) // Ensures structure alignment matches BMP file
 struct BMPHeader {
   uint16_t fileType; // Should be 'BM' (0x4D42)
@@ -31,15 +33,9 @@ struct BgrColor {
   unsigned char b, g, r;
 };
 
-struct RgbColor {
-  unsigned char r, g, b;
-};
-
 inline RgbColor fix_color(const BgrColor &color) {
   return {color.r, color.g, color.b};
 }
-
-typedef std::vector<std::vector<RgbColor>> Canvas;
 
 std::pair<BMPHeader, DIBHeader> read_headers(std::ifstream &file) {
   // Read headers
