@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "bitmap.h"
+#include "shared_types.h"
 
 #pragma pack(push, 1) // Ensures structure alignment matches BMP file
 struct BMPHeader {
@@ -78,7 +79,7 @@ Canvas load_image(std::string filepath) {
 
   int width = dib_header.width;
   int height = dib_header.height;
-  Canvas result(width, std::vector<RgbColor>(height));
+  Canvas result(width, height);
 
   file.seekg(bmp_header.offsetData, std::ios::beg);
   int rowPadding =
@@ -88,7 +89,7 @@ Canvas load_image(std::string filepath) {
     for (int y = 0; y < height; y++) {
       BgrColor pixel;
       file.read(reinterpret_cast<char *>(&pixel), sizeof(BgrColor));
-      result[x][y] = fix_color(pixel);
+      result.set(x, y, fix_color(pixel));
     }
     file.ignore(rowPadding); // Skip padding bytes
   }
@@ -97,4 +98,3 @@ Canvas load_image(std::string filepath) {
 
   return result;
 }
-
