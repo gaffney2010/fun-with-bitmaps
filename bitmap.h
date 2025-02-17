@@ -7,4 +7,3 @@ std::pair<int, int> width_height(std::string filepath);
 Canvas load_image(std::string filepath);
 
 #endif // BITMAP_H
-

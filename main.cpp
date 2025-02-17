@@ -1,13 +1,14 @@
 #include "raylib.h"
 #include <cassert>
+#include <cmath>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
 #include <optional>
 #include <vector>
 
-#include "shared_types.h"
 #include "bitmap.h"
+#include "shared_types.h"
 
 struct WindowParams {
   Dimensions dim;
@@ -17,11 +18,10 @@ struct WindowParams {
 struct Candidate {
   Coord coord;
   RgbColor color;
-  int radius;
 };
 
 std::vector<Coord> circle_mask(const Coord &coord, int radius,
-                               const Dimensions& dim) {
+                               const Dimensions &dim) {
   std::vector<Coord> result;
   for (int dy = -radius; dy <= radius; dy++) {
     for (int dx = -radius; dx <= radius; dx++) {
@@ -39,11 +39,6 @@ std::vector<Coord> circle_mask(const Coord &coord, int radius,
   return result;
 }
 
-std::vector<Coord> circle_mask(const Candidate &candidate,
-                               const Dimensions& dim) {
-  return circle_mask(candidate.coord, candidate.radius, dim);
-}
-
 int diff(const RgbColor &apx, const RgbColor &bpx) {
   int max = 0;
   if (max < abs(apx.r - bpx.r))
@@ -58,24 +53,25 @@ int diff(const RgbColor &apx, const RgbColor &bpx) {
 int diff(const Canvas &a, const Canvas &b, const std::vector<Coord> &mask) {
   int max = 0;
   for (const auto &coord : mask) {
-    int this_diff = diff(a.get(coord), b.get(coord));
-    if (max < this_diff)
-      max = this_diff;
+    if (coord.x % 2 == 0 && coord.y % 2 == 0) {
+      int this_diff = diff(a.get(coord), b.get(coord));
+      if (max < this_diff)
+        max = this_diff;
+    }
   }
   return max;
 }
 
 std::vector<Candidate> generate_candidates(int step, const WindowParams &wp) {
-  return {{
-      .coord = {.x = rand() % wp.dim.w, .y = rand() % wp.dim.h},
-      .color =
-          {
-              .r = static_cast<unsigned char>(rand() % 256),
-              .g = static_cast<unsigned char>(rand() % 256),
-              .b = static_cast<unsigned char>(rand() % 256),
-          },
-      .radius = 10,
-  }};
+  std::vector<Candidate> result;
+  for (int i = 0; i < 3; i++) {
+    Coord coord = {rand() % wp.dim.w, rand() % wp.dim.h};
+    result.push_back({
+        .coord = coord,
+        .color = wp.target_canvas.get(coord),
+    });
+  }
+  return result;
 }
 
 Canvas canvas_from_color_mask(const RgbColor &color,
@@ -90,24 +86,35 @@ Canvas canvas_from_color_mask(const RgbColor &color,
 
 std::optional<Candidate>
 best_candidate(const std::vector<Candidate> &candidates, const Canvas &canvas,
-               const WindowParams &wp) {
+               int radius, const WindowParams &wp) {
+  if (radius <= 8) return candidates[0];
   std::optional<Candidate> result = std::nullopt;
+  int record = 0;
   for (const auto &candidate : candidates) {
-    auto this_mask = circle_mask(candidate, wp.dim);
+    auto this_mask = circle_mask(candidate.coord, radius, wp.dim);
     auto new_canvas = canvas_from_color_mask(candidate.color, this_mask, wp);
-    if (diff(new_canvas, wp.target_canvas, this_mask) <
-        diff(canvas, wp.target_canvas, this_mask))
+    int improvement = diff(canvas, wp.target_canvas, this_mask) -
+                      diff(new_canvas, wp.target_canvas, this_mask);
+    if (improvement > record) {
+      record = improvement;
       result = candidate;
+    }
   }
   return result;
 }
 
-Candidate find_candidate(int step, const Canvas &canvas,
-                         const WindowParams &wp) {
+Candidate find_candidate(int step, const Canvas &canvas, const WindowParams &wp,
+                         int &radius) {
   std::optional<Candidate> result = std::nullopt;
+  // if (step >= 1000) radius = 2;
+  int failure = 0;
   while (!result.has_value()) {
-    result = best_candidate(generate_candidates(step, wp), canvas, wp);
-    // std::cout << "Candidate did not work out." << std::endl;
+    result = best_candidate(generate_candidates(step, wp), canvas, radius, wp);
+    failure++;
+    if (failure > 10 && radius > 3) {
+      radius--;
+      failure = 0;
+    }
   }
   return *result;
 }
@@ -123,21 +130,25 @@ int main() {
   // Set window dimensions
   const int w = 800;
   const int h = 600;
-  WindowParams wp = {
-      .dim = {.w = w, .h = h}, .target_canvas = load_image("starry_night.bmp")};
+  WindowParams wp = {.dim = {.w = w, .h = h},
+                     .target_canvas = load_image("starry_night.bmp")};
   InitWindow(wp.dim.w, wp.dim.h, "Fun with bitmaps");
 
   Canvas canvas(wp.dim);
 
-  SetTargetFPS(1);
+  SetTargetFPS(120);
 
+  int radius = 100;
+
+  int step = 0;
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(BLACK);
 
     // Add a new circle to the canvas
-    auto c = find_candidate(0, canvas, wp);
-    for (const auto &coord : circle_mask(c.coord, c.radius, wp.dim)) {
+    auto c = find_candidate(step, canvas, wp, radius);
+    step++;
+    for (const auto &coord : circle_mask(c.coord, radius, wp.dim)) {
       canvas.set(coord, c.color);
     }
 
